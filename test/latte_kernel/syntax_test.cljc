@@ -4,6 +4,144 @@
                :cljs [cljs.test :as t :refer-macros [is deftest testing]])
             [latte-kernel.syntax :refer :all]))
 
+(defn identify-all
+  "Test agains every single parameter predicate from the latte-kernel.syntax (except sort?)"
+  [input]
+  (->> [kind? type? variable? binder? app? ascription? ref? lambda? prod?]
+       (map #(if (% input) %))
+       (remove nil?)))
+
+(deftest test-identify-all
+  (is (= (identify-all 't)
+         [variable?]))
+
+  ;; make sure your editor does not prettify symbols. In emacs see `M-x prettify-symbols-mode`
+
+  ;; testing some of:
+  ;; - java reserved words
+  ;; - clojure symbols
+  ;; - utf8 chars and strings
+  ;; - etc.
+  (is (= (identify-all 'fn)
+         (identify-all 'vector)
+         (identify-all 'vec)
+         (identify-all 'list)
+         (identify-all 'defmacro)
+         (identify-all 'type)
+         (identify-all '*ns*)
+         (identify-all '->)
+         (identify-all '->>)
+         (identify-all '=)
+         (identify-all '=>)
+         (identify-all 'get))
+         (identify-all 'equals)
+         (identify-all 'compare)
+         (identify-all 'Boolean)
+         (identify-all '.)
+         (identify-all 'java.lang.Byte)
+         (identify-all 'α)
+         (identify-all 'β)
+         (identify-all 'γ)
+         (identify-all 'ß)
+         (identify-all 'Ů)
+         (identify-all 'Ůää)
+         (identify-all 'αβγ)
+         (identify-all '⇧) ;; TODO Does the `⇧` have any special meaning?
+         (identify-all 'or)
+         (identify-all 'and)
+         (identify-all 'not)
+         [variable?]))
+
+  ;; `true` and `false` don't belong to any category
+  ;; TODO: should we have an own predicate for the category of logical constanst?
+  (is (= (identify-all 'true)
+         (identify-all 'false)
+         []))
+
+  ;; `nil` doesn't belong to any category
+  ;; TODO: should we have an own predicate for nil? I.e. some sort of an empty category?
+  (is (= (identify-all 'nil)
+         []))
+
+  ;; numbers do not belong to any category; TODO: is this correct?
+  ;; => (= (type '42) (type 42) java.lang.Long)
+  ;; => true
+  (is (= (identify-all 4)
+         (identify-all 42)
+         (identify-all '42)
+         []))
+
+  ;; strings and chars do not belong to any category; TODO: is this correct?
+  ;; => (type '"")
+  ;; => java.lang.String
+  ;; => (type '\')
+  ;; => java.lang.Character
+  (is (= (identify-all '"")
+         (identify-all '"foo")
+         (identify-all '\\)
+         (identify-all '\x)
+         (identify-all '\')
+         (identify-all '\))
+         []))
+
+  (is (= (identify-all '[])
+         (identify-all '[x])
+         ;; (identify-all '[x y])  ;; this is an application
+         (identify-all '[x y z])
+         (identify-all '[x y z u])
+         (identify-all '{})
+         ;; (identify-all '{x}) ;; syntax error - can't build a pair
+         (identify-all '{x y})
+         ;; (identify-all '{x y z}) ;; syntax error - can't build a pair
+         (identify-all '#{})
+         (identify-all '#{x})
+         (identify-all '#{x y})
+         (identify-all '#{x y z})
+         (identify-all '#{x y z u})
+         []))
+
+  (is (= (identify-all '[x y])
+         [app?]))
+
+  (is (= (identify-all '())
+         (identify-all '(x))
+         (identify-all '(x y))
+         (identify-all '(x y z))
+         (identify-all '(x y z u))
+         [ref?]))
+
+  ;; TODO is this correct?
+  (is (= (identify-all 'λ)
+         (identify-all 'Π)
+         (identify-all '==>)
+         (identify-all 'forall)
+         (identify-all 'exists)
+         (identify-all 'lambda)
+         (identify-all '⟶)
+         (identify-all '∀)
+         (identify-all '∃)
+         [variable?]))
+
+  (is (= (identify-all '(λ [x t] x))
+         [binder? lambda?]))
+
+  (is (= (identify-all '(λ [x t]))
+         [binder? lambda?]))
+
+  (is (= (identify-all '(Π [x t] x))
+         [binder? prod?]))
+
+  (is (= (identify-all '(Π [x t]))
+         [binder? prod?]))
+
+  ;; `✳` is a type and a variable at the same time; TODO: is this correct?
+  (is (= (identify-all '✳)
+         [type? variable?]))
+
+  ;; `□` is a kind and a variable at the same time; TODO: is this correct?
+  (is (= (identify-all '□)
+         [kind? variable?])))
+
 (deftest test-term-reduce
   (is (= (term-reduce {} 42 '(λ [x t] (test x y z)))
          42))

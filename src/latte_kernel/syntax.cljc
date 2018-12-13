@@ -49,9 +49,10 @@
 ;;   - *product abstractions* `(Π [x t] u)`
 ;;}
 (defn binder?
-  "Is `t` a binding abstraction?"
+  "Is `t` a binding abstraction? (Page 72)"
   [t]
   (and (list? t)
+       ;; TODO how is this set related to the latte-kernel.syntax/+reserved-symbols+ ?
        (contains? '#{λ Π} (first t))))
 
 (defn binderify
@@ -195,7 +196,9 @@
     (ascription? t) (let [[_ e u] t]
                   (set/union (free-vars e)
                              (free-vars u)))
-    (ref? t) (apply set/union (map free-vars (rest t)))
+    (ref? t) (apply set/union (map free-vars (rest t))) ;; i.e. '()
+    ;; this branch gets executed for: 'nil, 'true, 'false, strings, chars and numbers, '[], '{}, '#{}
+    ;; TODO is this correct?
     :else #{}))
 
 (defn vars
@@ -209,7 +212,9 @@
                         (vars (second t)))
     (ascription? t) (let [[_ e u] t]
                   (set/union (vars e) (vars u)))
-    (ref? t) (apply set/union (map vars (rest t)))
+    (ref? t) (apply set/union (map vars (rest t))) ;; i.e. '()
+    ;; this branch gets executed for: 'nil, 'true, 'false, strings, chars and numbers, '[], '{}, '#{}
+    ;; TODO is this correct?
     :else #{}))
 
 (defn bound-vars
